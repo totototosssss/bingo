@@ -1,0 +1,883 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ビンゴ先着確率ランキング</title>
+<style>
+  :root{
+    --paper:#f3efe5;
+    --ink:#171712;
+    --muted:#716e64;
+    --line:#cfc7b8;
+    --red:#e94d3d;
+    --blue:#2d66c3;
+    --green:#2f9b67;
+    --yellow:#e2ab2e;
+    --purple:#7752b3;
+    --teal:#2a9a99;
+    --panel:#fbf8f0;
+    --dark:#21211e;
+  }
+
+  *{box-sizing:border-box}
+  button,input,select{-webkit-tap-highlight-color:transparent}
+  html{background:var(--paper)}
+  body{
+    margin:0;
+    color:var(--ink);
+    background:
+      linear-gradient(rgba(255,255,255,.16),rgba(255,255,255,.16)),
+      repeating-linear-gradient(0deg, transparent 0 27px, rgba(40,35,28,.028) 28px);
+    font-family:"Hiragino Kaku Gothic ProN","Yu Gothic","Noto Sans JP",system-ui,sans-serif;
+  }
+
+  button,select,input{font:inherit}
+  button{touch-action:manipulation}
+
+  .wrap{
+    max-width:1280px;
+    margin:0 auto;
+    padding:28px 22px 56px;
+  }
+
+  .wrap > h1{
+    margin:0;
+    font-size:clamp(30px,4vw,52px);
+    letter-spacing:.01em;
+    line-height:1;
+    font-weight:900;
+  }
+
+  .wrap > h1::after{
+    content:"";
+    display:block;
+    width:84px;
+    height:6px;
+    margin-top:12px;
+    background:var(--red);
+    border-radius:999px;
+  }
+
+  .lead{
+    margin:14px 0 26px;
+    max-width:780px;
+    color:var(--muted);
+    line-height:1.8;
+    font-size:14px;
+  }
+
+  .layout{
+    min-width:0;
+    display:grid;
+    grid-template-columns:minmax(330px,.88fr) minmax(0,1.35fr);
+    gap:22px;
+    align-items:start;
+  }
+
+  .panel{
+    min-width:0;
+    background:var(--panel);
+    border:2px solid var(--dark);
+    border-radius:18px;
+    padding:18px;
+    box-shadow:7px 7px 0 rgba(33,33,30,.12);
+  }
+
+  .panel h2{
+    margin:0 0 14px;
+    font-size:18px;
+    font-weight:900;
+    letter-spacing:.02em;
+  }
+
+  .layout > .panel:first-child{
+    position:sticky;
+    top:18px;
+  }
+
+  .addrow{
+    display:grid;
+    grid-template-columns:120px 1fr 1fr;
+    gap:8px;
+    margin:0 0 8px;
+  }
+
+  .addrow input{
+    width:100%;
+    border:2px solid var(--dark);
+    background:#fffef9;
+    border-radius:10px;
+    padding:10px 12px;
+    outline:none;
+    font-weight:800;
+  }
+
+  .addrow input:focus{box-shadow:0 0 0 3px rgba(45,102,195,.15)}
+
+  button{
+    border:2px solid var(--dark);
+    background:#fffef9;
+    color:var(--ink);
+    border-radius:10px;
+    padding:9px 11px;
+    cursor:pointer;
+    font-weight:800;
+    box-shadow:2px 2px 0 rgba(33,33,30,.16);
+    transition:transform .06s ease, box-shadow .06s ease, background .12s ease;
+  }
+
+  button:hover{background:#f0eadc}
+  button:active{
+    transform:translate(2px,2px);
+    box-shadow:0 0 0 rgba(33,33,30,0);
+  }
+
+  button.primary{
+    background:var(--dark);
+    color:white;
+  }
+
+  .controls{
+    display:flex;
+    gap:7px;
+    flex-wrap:wrap;
+    margin:8px 0 14px;
+  }
+
+  .controls button{
+    font-size:12px;
+    padding:7px 10px;
+    box-shadow:none;
+  }
+
+  .called-list{
+    min-height:44px;
+    margin:10px 0 10px;
+    padding:10px 12px;
+    border-left:6px solid var(--yellow);
+    background:#fff8dd;
+    font-size:13px;
+    line-height:1.7;
+    color:#544c35;
+    font-variant-numeric:tabular-nums;
+  }
+
+  .number-grid{
+    display:grid;
+    grid-template-columns:repeat(10,1fr);
+    gap:6px;
+    margin-top:10px;
+  }
+
+  .nbtn{
+    position:relative;
+    aspect-ratio:1/1;
+    min-width:0;
+    padding:0;
+    border:1.5px solid #bdb5a6;
+    border-radius:50%;
+    background:#fffef9;
+    box-shadow:none;
+    font-size:13px;
+    font-weight:900;
+    display:grid;
+    place-items:center;
+  }
+
+  .nbtn:hover{background:#f4efe3}
+  .nbtn.called{
+    color:white;
+    border-color:var(--dark);
+    background:var(--red);
+  }
+
+  .nbtn .ord{
+    position:absolute;
+    right:-2px;
+    top:-4px;
+    display:grid;
+    place-items:center;
+    width:15px;height:15px;
+    border-radius:50%;
+    background:var(--dark);
+    color:white;
+    font-size:8px;
+    font-weight:800;
+    border:1px solid white;
+  }
+
+  .status{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-start;
+    gap:16px;
+    padding-bottom:14px;
+    border-bottom:2px solid var(--dark);
+    margin-bottom:12px;
+  }
+
+  .status-main{
+    font-size:23px;
+    font-weight:900;
+    letter-spacing:.01em;
+  }
+
+  .status-sub{
+    margin-top:4px;
+    font-size:12px;
+    color:var(--muted);
+  }
+
+  .spinner{
+    font-size:11px;
+    color:var(--muted);
+    white-space:nowrap;
+    padding-top:4px;
+  }
+
+  .settings{
+    display:flex;
+    gap:14px;
+    align-items:center;
+    flex-wrap:wrap;
+    padding:10px 0 12px;
+  }
+
+  .settings label{
+    font-size:12px;
+    color:var(--muted);
+    font-weight:700;
+  }
+
+  .settings select{
+    margin-left:5px;
+    border:1.5px solid #aaa293;
+    border-radius:8px;
+    padding:6px 8px;
+    background:#fffef9;
+    color:var(--ink);
+    font-weight:700;
+  }
+
+  .mobile-leaders{display:none}
+
+  .ranking-scroll{
+    overflow:auto;
+    max-height:650px;
+    min-width:0;
+    -webkit-overflow-scrolling:touch;
+  }
+
+  .winnerbox{
+    border:2px solid var(--green);
+    background:#eaf5ef;
+    padding:12px 14px;
+    border-radius:12px;
+    margin:8px 0 14px;
+    line-height:1.7;
+  }
+
+  table{
+    width:100%;
+    border-collapse:separate;
+    border-spacing:0 7px;
+    font-size:14px;
+  }
+
+  thead th{
+    color:var(--muted);
+    font-size:11px;
+    font-weight:800;
+    text-align:right;
+    padding:0 8px 3px;
+    white-space:nowrap;
+  }
+
+  thead th:nth-child(1),
+  thead th:nth-child(2){text-align:left}
+
+  tbody tr{
+    background:#fffef9;
+  }
+
+  tbody td{
+    padding:11px 8px;
+    text-align:right;
+    vertical-align:middle;
+    border-top:1px solid #ded7ca;
+    border-bottom:1px solid #ded7ca;
+  }
+
+  tbody td:first-child{
+    border-left:1px solid #ded7ca;
+    border-radius:10px 0 0 10px;
+    width:44px;
+    text-align:left;
+    font-size:17px;
+    font-weight:900;
+    padding-left:12px;
+  }
+
+  tbody td:last-child{
+    border-right:1px solid #ded7ca;
+    border-radius:0 10px 10px 0;
+  }
+
+  tbody tr:nth-child(1) td{background:#fff3c8;border-color:#d2b14e}
+  tbody tr:nth-child(2) td{background:#f2f2ef;border-color:#bdbdb6}
+  tbody tr:nth-child(3) td{background:#f7e7d7;border-color:#c79a71}
+
+  tbody tr:nth-child(1) td:first-child::after{content:" ①"}
+  tbody tr:nth-child(2) td:first-child::after{content:" ②"}
+  tbody tr:nth-child(3) td:first-child::after{content:" ③"}
+
+  .name{
+    text-align:left !important;
+    font-weight:900;
+    white-space:nowrap;
+  }
+
+  .probcell{min-width:150px}
+  .probnum{
+    font-variant-numeric:tabular-nums;
+    font-weight:800;
+  }
+
+  .bar{
+    height:6px;
+    margin-top:6px;
+    background:#e4ded1;
+    border-radius:999px;
+    overflow:hidden;
+  }
+
+  .bar > span{
+    display:block;
+    height:100%;
+    background:var(--blue);
+    border-radius:999px;
+  }
+
+  .reach{
+    display:inline-block;
+    padding:2px 7px;
+    border-radius:999px;
+    background:#ffe6de;
+    color:#b33223;
+    font-weight:900;
+  }
+
+  .small{font-size:12px;color:var(--muted)}
+  .error{color:#9e2e25}
+
+  details.panel{
+    margin-top:22px;
+    box-shadow:none;
+    border-style:dashed;
+  }
+
+  summary{
+    cursor:pointer;
+    font-weight:900;
+    list-style:none;
+  }
+
+  summary::-webkit-details-marker{display:none}
+  summary::before{
+    content:"＋";
+    display:inline-block;
+    margin-right:8px;
+    font-weight:900;
+  }
+  details[open] summary::before{content:"−"}
+
+  .cards{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:12px;
+    margin-top:14px;
+  }
+
+  .card{
+    border:1.5px solid #bdb5a6;
+    border-radius:12px;
+    padding:9px;
+    background:#fffef9;
+  }
+
+  .card.ignored{
+    opacity:.45;
+    filter:grayscale(.65);
+  }
+
+  .card-title{
+    font-size:12px;
+    font-weight:900;
+    margin:0 0 7px;
+  }
+
+  .mini{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    border-left:1px solid #c9c2b5;
+    border-top:1px solid #c9c2b5;
+  }
+
+  .mini span{
+    font-size:10px;
+    text-align:center;
+    padding:5px 2px;
+    border-right:1px solid #c9c2b5;
+    border-bottom:1px solid #c9c2b5;
+  }
+
+  .free{
+    background:#ece9e1;
+    color:#777268;
+    font-size:8px !important;
+    display:grid;
+    place-items:center;
+  }
+
+  .foot{
+    margin-top:12px;
+    padding-top:10px;
+    border-top:1px dashed #cfc7b8;
+    color:var(--muted);
+    font-size:11px;
+    line-height:1.7;
+  }
+
+  @media(max-width:980px){
+    .layout{grid-template-columns:1fr}
+    .layout > .panel:first-child{position:static}
+    .cards{grid-template-columns:repeat(2,1fr)}
+  }
+
+  @media(max-width:620px){
+    .wrap{padding:16px 10px 34px}
+    .wrap > h1{font-size:34px}
+    .lead{margin-bottom:18px;font-size:13px;line-height:1.65}
+    .panel{padding:14px;border-radius:14px;box-shadow:4px 4px 0 rgba(33,33,30,.12)}
+    .addrow{grid-template-columns:1fr 1fr}
+    .addrow input{grid-column:1/3;font-size:16px;min-height:46px}
+    .addrow button{min-height:46px}
+    .controls{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+    .controls button{min-height:44px;padding:7px 6px;font-size:11px}
+    .mobile-leaders{
+      position:sticky;
+      top:6px;
+      z-index:20;
+      display:grid;
+      grid-template-columns:auto repeat(3,minmax(0,1fr));
+      gap:5px;
+      align-items:center;
+      margin:8px 0 10px;
+      padding:7px;
+      border:2px solid var(--dark);
+      border-radius:11px;
+      background:rgba(251,248,240,.96);
+      box-shadow:3px 3px 0 rgba(33,33,30,.14);
+      backdrop-filter:blur(6px);
+    }
+    .mobile-leaders-label{
+      font-size:10px;
+      font-weight:900;
+      writing-mode:vertical-rl;
+      letter-spacing:.06em;
+      color:var(--muted);
+    }
+    .mobile-leader{
+      min-width:0;
+      text-align:center;
+      line-height:1.15;
+    }
+    .mobile-leader strong{display:block;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .mobile-leader small{display:block;margin-top:3px;font-size:10px;color:var(--muted);font-weight:800}
+    .mobile-leaders-wait{grid-column:2/5;font-size:11px;color:var(--muted)}
+    .ranking-scroll{max-height:none;overflow:visible}
+    .number-grid{grid-template-columns:repeat(6,1fr);gap:7px}
+    .nbtn{min-width:44px;min-height:44px;font-size:14px}
+    .cards{grid-template-columns:1fr}
+    .status{gap:10px}
+    .status-main{font-size:20px}
+    .settings{gap:8px;align-items:stretch}
+    .settings label{display:flex;flex:1 1 145px;flex-direction:column;gap:4px}
+    .settings select{margin-left:0;min-height:44px;font-size:16px;width:100%}
+    .probcell{min-width:110px}
+    table{font-size:13px}
+    tbody td{padding:10px 7px}
+    thead th:nth-child(4),tbody td:nth-child(4){display:none}
+    thead th:nth-child(6),tbody td:nth-child(6){display:none}
+  }
+
+  @media(max-width:520px){
+    thead th:nth-child(5),tbody td:nth-child(5){display:none}
+    .spinner{font-size:10px}
+  }
+
+  @media(max-width:360px){
+    .wrap{padding-left:8px;padding-right:8px}
+    .number-grid{grid-template-columns:repeat(5,1fr)}
+    .controls{grid-template-columns:1fr 1fr}
+    .controls button:last-child{grid-column:1/3}
+    .status{flex-direction:column;gap:5px}
+    .spinner{padding-top:0}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>BINGO RACE</h1>
+  <p class="lead">数字を追加すると、その時点から誰が最初にビンゴするかを即座に再計算します。初期登録の抽選順は 5 → 9 → 13 → 27 → 28 → 51 → 47 → 71 → 6 → 30 です。</p>
+
+  <div class="layout">
+    <section class="panel">
+      <h2>DRAW BOARD</h2>
+      <div class="addrow">
+        <input id="numberInput" inputmode="numeric" min="1" max="75" placeholder="1〜75">
+        <button id="addBtn" class="primary">追加</button>
+        <button id="randomBtn">ランダムに1個</button>
+      </div>
+      <div class="controls">
+        <button id="undoBtn">1つ戻す</button>
+        <button id="resetBtn">今回の10球に戻す</button>
+        <button id="clearBtn">全消去</button>
+      </div>
+      <div id="calledList" class="called-list"></div>
+      <div id="mobileLeaders" class="mobile-leaders" aria-live="polite"><span class="mobile-leaders-label">TOP 3</span><span class="mobile-leaders-wait">計算中…</span></div>
+      <div id="numberGrid" class="number-grid"></div>
+      <div class="foot">数字をもう一度押すと解除。追加順をそのまま抽選順として扱います。</div>
+    </section>
+
+    <section class="panel">
+      <div class="status">
+        <div>
+          <div id="statusMain" class="status-main">計算中…</div>
+          <div id="statusSub" class="status-sub"></div>
+        </div>
+        <div id="spinner" class="spinner"></div>
+      </div>
+
+      <div class="settings">
+        <label>並び順
+          <select id="sortMetric">
+            <option value="shared">優勝確率（同着は等分）</option>
+            <option value="inclusive">先着に含まれる確率</option>
+          </select>
+        </label>
+        <label>計算精度
+          <select id="simCount">
+            <option value="20000">高速 2万回</option>
+            <option value="50000" selected>通常 5万回</option>
+            <option value="200000">精密 20万回</option>
+          </select>
+        </label>
+      </div>
+
+      <div id="winnerArea"></div>
+      <div class="ranking-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>順位</th>
+              <th>人</th>
+              <th>優勝確率</th>
+              <th>先着に含まれる確率</th>
+              <th>次の1球でBINGO</th>
+              <th>最短あと</th>
+            </tr>
+          </thead>
+          <tbody id="rankingBody"></tbody>
+        </table>
+      </div>
+      <div class="foot">
+        「優勝確率」は同じ球で複数人が同時に最初のビンゴを作った場合、その回を人数で等分した確率です。この列の合計は100%になります。
+        「先着に含まれる確率」は同着者を全員カウントするため、合計が100%を超えることがあります。将来部分は Monte Carlo 法で推定します。通常モードは操作感を優先した5万回計算です。
+      </div>
+    </section>
+  </div>
+
+  <details class="panel">
+    <summary>カード割当と読み取り内容を確認</summary>
+    <div id="cards" class="cards"></div>
+  </details>
+</div>
+
+<script>
+const CARDS = [
+[[7,22,33,46,62],[14,27,39,53,68],[5,21,null,58,71],[9,25,41,55,74],[12,18,37,49,63]],
+[[2,16,31,48,61],[6,24,42,57,67],[13,20,null,52,69],[8,28,38,54,72],[11,23,45,60,66]],
+[[3,17,34,47,64],[10,26,40,51,70],[15,22,null,56,73],[4,19,36,59,75],[12,29,44,58,68]],
+[[1,18,32,50,65],[9,27,41,52,71],[6,23,null,59,70],[13,30,45,54,72],[11,21,38,60,67]],
+[[4,16,35,47,63],[8,25,43,56,66],[12,20,null,52,68],[7,28,37,55,74],[14,22,42,58,69]],
+[[5,19,31,46,61],[11,24,40,53,67],[3,17,null,57,71],[9,26,39,54,72],[15,27,44,59,66]],
+[[2,18,33,48,62],[10,23,37,52,70],[5,21,null,58,69],[12,28,42,56,73],[8,17,45,60,75]],
+[[6,16,34,49,64],[13,26,41,51,68],[4,22,null,57,71],[11,27,38,54,66],[7,19,36,50,72]],
+[[3,15,32,47,63],[9,24,39,55,69],[12,20,null,58,70],[6,29,44,53,74],[14,25,42,60,67]],
+[[1,17,31,46,62],[8,22,36,52,68],[5,23,null,56,71],[10,27,43,59,72],[13,28,40,57,66]],
+[[4,18,34,48,65],[11,26,41,53,70],[6,21,null,60,73],[9,25,37,54,67],[15,30,45,58,75]],
+[[2,16,33,49,64],[7,24,42,57,69],[12,20,null,55,71],[8,28,38,52,68],[14,23,46,60,73]],
+[[5,19,32,50,62],[9,27,41,51,67],[3,22,null,56,71],[11,26,38,54,72],[15,30,45,59,68]],
+[[6,17,34,48,61],[10,25,43,52,66],[7,21,null,58,70],[12,29,37,55,74],[8,23,42,60,73]],
+[[1,18,31,47,63],[13,24,40,53,69],[5,20,null,57,72],[9,28,36,56,71],[14,26,44,59,67]],
+[[4,16,35,49,64],[8,22,39,54,68],[12,27,null,58,72],[6,25,42,57,70],[11,30,45,60,66]],
+[[2,17,32,48,61],[10,26,41,52,69],[7,21,null,56,73],[13,28,37,55,68],[15,23,44,59,75]],
+[[5,19,33,46,62],[9,24,40,51,67],[11,22,null,58,71],[6,27,38,54,72],[12,30,42,57,66]]
+];
+
+const NAMES = [
+  "デメさん", null, "ゴロウさん", "ミオさん", "パツさん", null,
+  null, "チロさん", "コタさん", "ナンクさん", "ポヨさん", "メメさん",
+  "ササミさん", "フリコヒさん", "アイリさん", null, "ニャマさん", "ペタンさん"
+];
+
+const INITIAL = [5,9,13,27,28,51,47,71,6,30];
+let sequence = INITIAL.slice();
+let currentWorker = null;
+let calcToken = 0;
+
+function linesOf(card){
+  const lines=[];
+  for(let r=0;r<5;r++) lines.push(card[r].filter(v=>v!==null));
+  for(let c=0;c<5;c++){
+    const a=[]; for(let r=0;r<5;r++) if(card[r][c]!==null) a.push(card[r][c]);
+    lines.push(a);
+  }
+  const d1=[],d2=[];
+  for(let i=0;i<5;i++){
+    if(card[i][i]!==null)d1.push(card[i][i]);
+    if(card[i][4-i]!==null)d2.push(card[i][4-i]);
+  }
+  lines.push(d1,d2);
+  return lines;
+}
+const PLAYERS = NAMES.map((name,i)=> name ? ({name, cardIndex:i, lines:linesOf(CARDS[i])}) : null).filter(Boolean);
+
+function bingoWithSet(player,set){
+  return player.lines.some(line => line.every(n => set.has(n)));
+}
+function firstBingoFromSequence(seq){
+  const set=new Set();
+  for(let i=0;i<seq.length;i++){
+    set.add(seq[i]);
+    const winners=PLAYERS.filter(p=>bingoWithSet(p,set));
+    if(winners.length) return {drawIndex:i+1, number:seq[i], winners:winners.map(x=>x.name)};
+  }
+  return null;
+}
+function currentStats(){
+  const set=new Set(sequence);
+  return PLAYERS.map(p=>{
+    let minMissing=99;
+    const immediate=new Set();
+    for(const line of p.lines){
+      const miss=line.filter(n=>!set.has(n));
+      if(miss.length<minMissing) minMissing=miss.length;
+      if(miss.length===1) immediate.add(miss[0]);
+    }
+    return {name:p.name,minMissing,immediate:[...immediate]};
+  });
+}
+
+function renderNumbers(){
+  const grid=document.getElementById('numberGrid');
+  grid.innerHTML='';
+  const pos=new Map(sequence.map((n,i)=>[n,i+1]));
+  for(let n=1;n<=75;n++){
+    const b=document.createElement('button');
+    b.className='nbtn'+(pos.has(n)?' called':'');
+    b.innerHTML = String(n) + (pos.has(n)?`<span class="ord">${pos.get(n)}</span>`:'');
+    b.onclick=()=>toggleNumber(n);
+    grid.appendChild(b);
+  }
+  document.getElementById('calledList').textContent =
+    sequence.length ? `抽選順: ${sequence.join(' → ')}` : 'まだ数字は出ていません。';
+}
+function toggleNumber(n){
+  const idx=sequence.indexOf(n);
+  if(idx>=0) sequence.splice(idx,1);
+  else sequence.push(n);
+  renderAll();
+}
+function addNumber(){
+  const el=document.getElementById('numberInput');
+  const n=Number(el.value);
+  if(Number.isInteger(n)&&n>=1&&n<=75){
+    if(!sequence.includes(n)) sequence.push(n);
+    el.value='';
+    renderAll();
+  }
+}
+function drawRandom(){
+  const remain=[]; for(let n=1;n<=75;n++) if(!sequence.includes(n)) remain.push(n);
+  if(!remain.length)return;
+  const a=new Uint32Array(1); crypto.getRandomValues(a);
+  const n=remain[a[0]%remain.length];
+  sequence.push(n); renderAll();
+}
+function renderCards(){
+  const root=document.getElementById('cards');
+  root.innerHTML='';
+  CARDS.forEach((card,i)=>{
+    const div=document.createElement('div');
+    div.className='card'+(NAMES[i]?'':' ignored');
+    const title=document.createElement('div');
+    title.className='card-title';
+    title.textContent=`${i+1}. ${NAMES[i]||'該当者なし'}`;
+    div.appendChild(title);
+    const mini=document.createElement('div'); mini.className='mini';
+    card.flat().forEach(v=>{
+      const s=document.createElement('span');
+      if(v===null){s.textContent='FREE';s.className='free'} else s.textContent=v;
+      mini.appendChild(s);
+    });
+    div.appendChild(mini); root.appendChild(div);
+  });
+}
+function pct(x){return (100*x).toFixed(2)+'%';}
+function renderRanking(results, sims){
+  const metric=document.getElementById('sortMetric').value;
+  const stats=new Map(currentStats().map(x=>[x.name,x]));
+  const remaining=75-new Set(sequence).size;
+  const arr=results.map(x=>{
+    const s=stats.get(x.name);
+    return {...x, ...s, nextProb: remaining? s.immediate.filter(n=>!sequence.includes(n)).length/remaining:0};
+  });
+  arr.sort((a,b)=>b[metric]-a[metric] || b.shared-a.shared);
+  const mobileLeaders=document.getElementById('mobileLeaders');
+  if(mobileLeaders){
+    const top=arr.slice(0,3);
+    mobileLeaders.innerHTML='<span class="mobile-leaders-label">TOP 3</span>'+top.map((r,i)=>
+      `<span class="mobile-leader"><strong>${i+1}. ${r.name.replace('さん','')}</strong><small>${pct(r[metric])}</small></span>`
+    ).join('');
+  }
+  const body=document.getElementById('rankingBody'); body.innerHTML='';
+  arr.forEach((r,i)=>{
+    const tr=document.createElement('tr');
+    const missing = r.minMissing===0 ? '<span class="reach">BINGO</span>' :
+                    r.minMissing===1 ? '<span class="reach">1（リーチ）</span>' : r.minMissing;
+    tr.innerHTML=`
+      <td>${i+1}</td>
+      <td class="name">${r.name}</td>
+      <td class="probcell"><span class="probnum">${pct(r.shared)}</span><div class="bar"><span style="width:${Math.min(100,100*r.shared/0.20)}%"></span></div></td>
+      <td class="probnum">${pct(r.inclusive)}</td>
+      <td class="probnum">${pct(r.nextProb)}</td>
+      <td>${missing}</td>`;
+    body.appendChild(tr);
+  });
+  document.getElementById('spinner').textContent=`Monte Carlo ${Number(sims).toLocaleString()}回`;
+}
+
+const workerSource = `
+self.onmessage = function(e){
+  const {players, called, sims, seed} = e.data;
+  const calledSet = new Set(called);
+  const remain=[]; for(let n=1;n<=75;n++) if(!calledSet.has(n)) remain.push(n);
+  const P=players.length;
+  const shared=new Float64Array(P), incl=new Float64Array(P);
+  const priority=new Float64Array(76);
+  let state=seed>>>0;
+  function rng32(){
+    state = (state + 0x6D2B79F5) >>> 0;
+    let t=state;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return (t ^ (t >>> 14)) >>> 0;
+  }
+  for(let s=0;s<sims;s++){
+    priority.fill(0);
+    for(let j=0;j<remain.length;j++){
+      const n=remain[j];
+      priority[n] = rng32()*128 + n;
+    }
+    let best=Infinity;
+    const pt=new Float64Array(P);
+    for(let p=0;p<P;p++){
+      let playerBest=Infinity;
+      const lines=players[p].lines;
+      for(let l=0;l<lines.length;l++){
+        const line=lines[l];
+        let t=0;
+        for(let k=0;k<line.length;k++){
+          const n=line[k];
+          if(!calledSet.has(n) && priority[n]>t) t=priority[n];
+        }
+        if(t<playerBest) playerBest=t;
+      }
+      pt[p]=playerBest;
+      if(playerBest<best) best=playerBest;
+    }
+    let k=0;
+    for(let p=0;p<P;p++) if(pt[p]===best) k++;
+    for(let p=0;p<P;p++) if(pt[p]===best){ incl[p]++; shared[p]+=1/k; }
+  }
+  const out=players.map((p,i)=>({name:p.name,shared:shared[i]/sims,inclusive:incl[i]/sims}));
+  postMessage(out);
+}`;
+
+function seedFromCalled(called){
+  let h=2166136261>>>0;
+  for(const n of called.slice().sort((a,b)=>a-b)){
+    h^=n; h=Math.imul(h,16777619)>>>0;
+  }
+  return h||1;
+}
+function runSimulation(){
+  const first=firstBingoFromSequence(sequence);
+  const statusMain=document.getElementById('statusMain');
+  const statusSub=document.getElementById('statusSub');
+  const winnerArea=document.getElementById('winnerArea');
+  const spinner=document.getElementById('spinner');
+  winnerArea.innerHTML='';
+
+  if(first){
+    if(currentWorker){currentWorker.terminate();currentWorker=null;}
+    statusMain.textContent='最初のBINGOが発生済み';
+    statusSub.textContent=`${first.drawIndex}球目（${first.number}）で確定`;
+    winnerArea.innerHTML=`<div class="winnerbox"><strong>${first.winners.join(' / ')}</strong><br>${first.number} が出た時点で最初のビンゴです${first.winners.length>1?'（同着）':''}。</div>`;
+    const results=PLAYERS.map(p=>({name:p.name,shared:first.winners.includes(p.name)?1/first.winners.length:0,inclusive:first.winners.includes(p.name)?1:0}));
+    renderRanking(results,0);
+    spinner.textContent='結果確定';
+    return;
+  }
+
+  statusMain.textContent='まだBINGOなし';
+  statusSub.textContent=`${sequence.length}球済み・残り ${75-new Set(sequence).size} 個`;
+  spinner.textContent='計算中…';
+  const ml=document.getElementById('mobileLeaders'); if(ml) ml.style.opacity='.72';
+  const sims=Number(document.getElementById('simCount').value);
+  const token=++calcToken;
+  if(currentWorker) currentWorker.terminate();
+  const blob=new Blob([workerSource],{type:'text/javascript'});
+  currentWorker=new Worker(URL.createObjectURL(blob));
+  currentWorker.onmessage=(e)=>{
+    if(token!==calcToken)return;
+    renderRanking(e.data,sims);
+    const ml=document.getElementById('mobileLeaders'); if(ml) ml.style.opacity='1';
+    currentWorker.terminate(); currentWorker=null;
+  };
+  currentWorker.onerror=()=>{
+    spinner.innerHTML='<span class="error">計算エラー</span>';
+  };
+  currentWorker.postMessage({players:PLAYERS, called:[...new Set(sequence)], sims, seed:seedFromCalled(sequence)});
+}
+function renderAll(){
+  renderNumbers();
+  runSimulation();
+}
+document.getElementById('addBtn').onclick=addNumber;
+document.getElementById('numberInput').addEventListener('keydown',e=>{if(e.key==='Enter')addNumber()});
+document.getElementById('randomBtn').onclick=drawRandom;
+document.getElementById('undoBtn').onclick=()=>{sequence.pop();renderAll()};
+document.getElementById('resetBtn').onclick=()=>{sequence=INITIAL.slice();renderAll()};
+document.getElementById('clearBtn').onclick=()=>{sequence=[];renderAll()};
+document.getElementById('simCount').onchange=runSimulation;
+document.getElementById('sortMetric').onchange=runSimulation;
+
+renderCards();
+renderAll();
+</script>
+</body>
+</html>
