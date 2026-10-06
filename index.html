@@ -633,6 +633,11 @@
   @media(max-height:450px){.stage-topbar{padding:17px 24px 4px}.stage-main{display:grid;grid-template-columns:1.2fr 1fr;grid-template-rows:auto 1fr;gap:4px 22px;width:100%;padding:0 30px}.stage-kicker{grid-column:1/3}.stage-hero,.reveal-stage[data-phase="winner"] .stage-hero{height:140px;min-height:140px}.stage-reels{grid-column:2;grid-row:2;align-self:center}.stage-meter{display:none}.stage-title{font-size:42px}.stage-rank{font-size:17px;min-height:20px}.stage-footer{margin:4px 0 18px;min-height:32px;flex-direction:row;justify-content:center}.reveal-stage .stage-result-btn{min-height:36px;font-size:12px;padding:5px 22px}.stage-caption{font-size:9px}.stage-crest{height:22px}.stage-detail{margin-top:3px}.stage-detail strong{font-size:24px}.stage-push{width:110px;height:110px}.stage-push-inner strong{font-size:25px}.stage-push-inner small{font-size:8px}.stage-banner.top{top:7%}.stage-banner.bottom{bottom:16%}}
   @media(prefers-reduced-motion:reduce){.reveal-stage *,.reveal-stage *::before,.reveal-stage *::after{animation:none!important;transition:none!important}.stage-halo{opacity:.25}.reel-strip span{filter:none}.stage-sweep,.stage-impact{display:none}.stage-title{filter:none!important}}
 
+  .prize-settings{margin:20px 0}
+  .prize-options{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;margin-top:14px}
+  .prize-option{display:flex;align-items:center;gap:8px;padding:10px;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+  .prize-option:has(input:checked){background:#f4dfd8}
+  .prize-option input{width:18px;height:18px;accent-color:var(--red)}
 </style>
 <!-- Display font derived from Noto Sans CJK JP.
 This Font Software is licensed under the SIL Open Font License,
@@ -806,6 +811,14 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     </section>
   </div>
 
+  <section class="panel prize-settings" aria-labelledby="prizeHeading">
+    <h2 id="prizeHeading">賞の辞退</h2>
+    <p>辞退する人にチェックを入れてください。受賞対象から外して、残りの人の優勝確率と結果を再計算します。チェックを外すと復帰できます。</p>
+    <div id="prizeSummary" role="status"></div>
+    <div id="prizeOptions" class="prize-options"></div>
+    <p class="foot">辞退設定はこのブラウザーに保存されます。抽選順を戻しても辞退設定は維持されます。</p>
+  </section>
+
   <details class="panel">
     <summary>カード割当と読み取り内容を確認</summary>
     <div id="cards" class="cards"></div>
@@ -907,6 +920,34 @@ function linesOf(card){
 }
 const PLAYERS = NAMES.map((name,i)=> name ? ({name, cardIndex:i, lines:linesOf(CARDS[i])}) : null).filter(Boolean);
 
+const withdrawn = new Set();
+try {
+  const saved = JSON.parse(localStorage.getItem('bingo-withdrawn-v1') || '[]');
+  if(Array.isArray(saved)) saved.forEach(i=>{if(PLAYERS.some(p=>p.cardIndex===i))withdrawn.add(i);});
+} catch (_) {}
+function eligiblePlayers(){return PLAYERS.filter(p=>!withdrawn.has(p.cardIndex));}
+function updatePrizeSummary(){
+  document.getElementById('prizeSummary').textContent=`受賞対象 ${eligiblePlayers().length}人 / 辞退 ${withdrawn.size}人`;
+  document.getElementById('calculateBtn').disabled=!eligiblePlayers().length;
+}
+function renderPrizeOptions(){
+  const root=document.getElementById('prizeOptions');
+  root.replaceChildren();
+  PLAYERS.forEach(player=>{
+    const label=document.createElement('label');label.className='prize-option';
+    const input=document.createElement('input');input.type='checkbox';input.checked=withdrawn.has(player.cardIndex);
+    input.setAttribute('aria-label',player.name+'が賞を辞退');
+    input.onchange=()=>{
+      if(input.checked)withdrawn.add(player.cardIndex);else withdrawn.delete(player.cardIndex);
+      try{localStorage.setItem('bingo-withdrawn-v1',JSON.stringify([...withdrawn]));}catch(_){}
+      updatePrizeSummary();renderCards();runSimulation();
+    };
+    const text=document.createElement('span');text.textContent=player.name+'：辞退';
+    label.append(input,text);root.appendChild(label);
+  });
+  updatePrizeSummary();
+}
+
 function bingoWithSet(player,set){
   return player.lines.some(line => line.every(n => set.has(n)));
 }
@@ -914,7 +955,7 @@ function firstBingoFromSequence(seq){
   const set=new Set();
   for(let i=0;i<seq.length;i++){
     set.add(seq[i]);
-    const winners=PLAYERS.filter(p=>bingoWithSet(p,set));
+    const winners=eligiblePlayers().filter(p=>bingoWithSet(p,set));
     if(winners.length) return {drawIndex:i+1, number:seq[i], winners:winners.map(x=>x.name)};
   }
   return null;
@@ -977,7 +1018,7 @@ function renderCards(){
     div.className='card'+(NAMES[i]?'':' ignored');
     const title=document.createElement('div');
     title.className='card-title';
-    title.textContent=`${i+1}. ${NAMES[i]||'該当者なし'}`;
+    title.textContent=`${i+1}. ${NAMES[i]||'該当者なし'}${withdrawn.has(i)?'（賞を辞退）':''}`;
     div.appendChild(title);
     const mini=document.createElement('div'); mini.className='mini';
     card.flat().forEach(v=>{
@@ -1094,12 +1135,21 @@ function runSimulation(){
   const metric=document.getElementById('sortMetric').value;
   const calledCount=sequence.length;
   winnerArea.innerHTML='';
+  if(!eligiblePlayers().length){
+    statusMain.textContent='受賞対象者がいません';
+    statusSub.textContent='「賞の辞退」のチェックを外すと再開できます';
+    renderRanking([],0);
+    winnerArea.textContent='全員が賞を辞退しています。';
+    const leaders=document.getElementById('mobileLeaders');if(leaders)leaders.textContent='受賞対象者なし';
+    spinner.textContent='計算対象なし';
+    return Promise.resolve(null);
+  }
 
   if(first){
     statusMain.textContent='最初のBINGOが発生済み';
     statusSub.textContent=`${first.drawIndex}球目（${first.number}）で確定`;
     winnerArea.innerHTML=`<div class="winnerbox"><strong>${first.winners.join(' / ')}</strong><br>${first.number} が出た時点で最初のビンゴです${first.winners.length>1?'（同着）':''}。</div>`;
-    const results=PLAYERS.map(p=>({name:p.name,shared:first.winners.includes(p.name)?1/first.winners.length:0,inclusive:first.winners.includes(p.name)?1:0}));
+    const results=eligiblePlayers().map(p=>({name:p.name,shared:first.winners.includes(p.name)?1/first.winners.length:0,inclusive:first.winners.includes(p.name)?1:0}));
     renderRanking(results,0);
     const ml=document.getElementById('mobileLeaders');if(ml)ml.style.opacity='1';
     spinner.textContent='結果確定';
@@ -1133,7 +1183,7 @@ function runSimulation(){
         if(token!==calcToken)return;
         spinner.innerHTML='<span class="error">計算エラー</span>';done(null);
       };
-      currentWorker.postMessage({players:PLAYERS,called:[...new Set(sequence)],sims,seed:seedFromCalled(sequence)});
+      currentWorker.postMessage({players:eligiblePlayers(),called:[...new Set(sequence)],sims,seed:seedFromCalled(sequence)});
     }catch(_){spinner.innerHTML='<span class="error">計算エラー</span>';done(null);}
   });
 }
@@ -1273,9 +1323,9 @@ function sortedResults(payload){return payload.results.slice().sort((a,b)=>b[pay
 function reelElement(place){return $('stageReels').querySelector('[data-place="'+place+'"]');}
 function resetReels(){
   for(const place of [1,2,3]){
-    const card=reelElement(place);card.classList.remove('locked','stage-rank-hit');card.querySelector('.reel-order').textContent='第'+place+'位';card.querySelector('.reel-prob').textContent='—';
+    const card=reelElement(place);card.style.display=place>eligiblePlayers().length?'none':'';card.classList.remove('locked','stage-rank-hit');card.querySelector('.reel-order').textContent='第'+place+'位';card.querySelector('.reel-prob').textContent='—';
     const strip=document.createElement('div');strip.className='reel-strip';
-    const names=PLAYERS.slice(place*2,place*2+6).map(p=>p.name.replace(/さん$/,''));
+    const names=eligiblePlayers().map(p=>p.name.replace(/さん$/,''));
     for(const name of [...names,...names]){const span=document.createElement('span');span.textContent=name;strip.appendChild(span);}
     card.querySelector('.reel-window').replaceChildren(strip);
   }
@@ -1331,11 +1381,11 @@ function closeReveal(){
   if(!reveal.active)return;
   reveal.active=false;reveal.run++;cancelRevealTimers();sound.stop();particles.stop();
   $('revealStage').hidden=true;$('stageImpact').replaceChildren();document.querySelector('.wrap').inert=false;
-  Object.assign(document.body.style,reveal.bodyStyle);document.documentElement.style.overflow=reveal.htmlOverflow;window.scrollTo(0,reveal.scroll);$('calculateBtn').disabled=false;
+  Object.assign(document.body.style,reveal.bodyStyle);document.documentElement.style.overflow=reveal.htmlOverflow;window.scrollTo(0,reveal.scroll);$('calculateBtn').disabled=!eligiblePlayers().length;
   if(reveal.focus&&reveal.focus.isConnected)reveal.focus.focus({preventScroll:true});
 }
 async function startReveal(){
-  if(reveal.active)return;
+  if(reveal.active||!eligiblePlayers().length)return;
   sound.start();reveal.active=true;reveal.finished=false;reveal.payload=null;reveal.skip=false;reveal.run++;cancelRevealTimers();
   const run=reveal.run;reveal.focus=document.activeElement;reveal.scroll=window.scrollY;
   reveal.bodyStyle={overflow:document.body.style.overflow,position:document.body.style.position,top:document.body.style.top,left:document.body.style.left,width:document.body.style.width};
@@ -1363,8 +1413,8 @@ async function startReveal(){
   }
   const sorted=sortedResults(payload);
   if(!payload.first){
-    announcePlace(3,sorted[2],payload);if(!await stageWait(1320,run))return;
-    announcePlace(2,sorted[1],payload);if(!await stageWait(1320,run))return;
+    if(sorted[2]){announcePlace(3,sorted[2],payload);if(!await stageWait(1320,run))return;}
+    if(sorted[1]){announcePlace(2,sorted[1],payload);if(!await stageWait(1320,run))return;}
   }
   stage.dataset.phase='suspense';$('stageRank').textContent=payload.first?'BINGO':'第1位';
   $('stageTitle').textContent='BINGO RACE';$('stageCaption').textContent='';$('stagePush').hidden=false;
@@ -1392,6 +1442,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden&&reveal.act
 syncSound();
 
 
+renderPrizeOptions();
 renderCards();
 renderAll();
 </script>
