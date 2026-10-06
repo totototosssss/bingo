@@ -738,7 +738,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 <body>
 <div class="wrap">
   <h1>BINGO RACE</h1>
-  <p class="lead">数字を追加すると、その時点から誰が最初にビンゴするかを即座に再計算します。初期登録の抽選順は 5 → 9 → 13 → 27 → 28 → 51 → 47 → 71 → 6 → 30 → 19 → 24 → 54 → 33 です。</p>
+  <p class="lead">数字を追加すると、その時点から誰が最初にビンゴするかを即座に再計算します。初期登録の抽選順は 5 → 9 → 13 → 27 → 28 → 51 → 47 → 71 → 6 → 30 → 19 → 24 → 54 → 33 → 62 です。</p>
 
   <div class="layout">
     <section class="panel">
@@ -750,7 +750,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       </div>
       <div class="controls">
         <button id="undoBtn">1つ戻す</button>
-        <button id="resetBtn">今回の14球に戻す</button>
+        <button id="resetBtn">今回の15球に戻す</button>
         <button id="clearBtn">全消去</button>
       </div>
       <div id="calledList" class="called-list"></div>
@@ -898,7 +898,7 @@ const NAMES = [
   "ササミさん", "フリコヒさん", "アイリさん", null, "ニャマさん", "ペタンさん"
 ];
 
-const INITIAL = [5,9,13,27,28,51,47,71,6,30,19,24,54,33];
+const INITIAL = [5,9,13,27,28,51,47,71,6,30,19,24,54,33,62];
 let sequence = INITIAL.slice();
 let currentWorker = null;
 let calcToken = 0;
